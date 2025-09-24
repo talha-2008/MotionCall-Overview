@@ -69,14 +69,14 @@ def lobby() -> rx.Component:
                 icon_off="mic-off",
                 text=rx.cond(CallState.is_mic_on, "Mic On", "Mic Off"),
                 is_on=CallState.is_mic_on,
-                on_click=CallState.toggle_mic,
+                on_click=CallState.toggle_mic(),
             ),
             lobby_toggle_button(
                 icon_on="video",
                 icon_off="video-off",
                 text=rx.cond(CallState.is_camera_on, "Cam On", "Cam Off"),
                 is_on=CallState.is_camera_on,
-                on_click=CallState.toggle_camera,
+                on_click=CallState.toggle_camera(),
             ),
             class_name="flex items-center gap-4",
         ),
@@ -103,4 +103,5 @@ def lobby() -> rx.Component:
         ),
         class_name="flex flex-col items-center justify-center gap-8 min-h-screen p-4 "
         + rx.cond(CallState.theme == "dark", "text-white", "text-black"),
+        on_mount=rx.call_script('init("")'),
     )

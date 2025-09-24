@@ -1,6 +1,8 @@
 import reflex as rx
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Union
 from app.states.lang_state import TEXT_BN, TEXT_EN, TextContent
+import asyncio
+import logging
 
 
 class Message(TypedDict):
@@ -9,7 +11,7 @@ class Message(TypedDict):
 
 
 rooms: dict[str, list[str]] = {}
-sds: dict[str, dict] = {}
+signals: dict[str, dict[str, Union[str, bool]]] = {}
 
 
 class CallState(rx.State):
@@ -44,8 +46,14 @@ class CallState(rx.State):
     def join_lobby(self, form_data: dict[str, str]):
         self.room_name = form_data.get("room_name", "").strip()
         if self.room_name:
-            if len(rooms.get(self.room_name, [])) >= 2:
-                return rx.toast.error(f"Room '{self.room_name}' is full.")
+            token = self.router.session.session_id
+            if (
+                token in rooms.get(self.room_name, [])
+                or len(rooms.get(self.room_name, [])) >= 2
+            ):
+                return rx.toast.error(
+                    f"Room '{self.room_name}' is full or you are already in it."
+                )
             self.page_state = "lobby"
             return
         yield rx.toast.error(self.text["enter_room"])
@@ -56,17 +64,43 @@ class CallState(rx.State):
         return CallState.on_call_load
 
     @rx.event
-    async def on_call_load(self):
+    def on_call_load(self):
         token = self.router.session.session_id
-        if not token:
+        if not token or not self.room_name:
             return
+        yield rx.call_script(f'init("{token}")')
+        yield CallState.poll_signals
+
+    @rx.event(background=True)
+    async def poll_signals(self):
+        token = self.router.session.session_id
+        while True:
+            async with self:
+                if token in signals:
+                    signal = signals.pop(token)
+                    yield rx.call_script(f"handle_signal({signal})")
+            await asyncio.sleep(0.1)
+
+    @rx.event
+    def send_signal(self, signal: dict):
+        my_token = self.router.session.session_id
+        if self.room_name not in rooms:
+            return
+        other_peers = [p for p in rooms[self.room_name] if p != my_token]
+        if other_peers:
+            other_token = other_peers[0]
+            signals[other_token] = signal
+
+    @rx.event
+    def user_joined(self):
+        token = self.router.session.session_id
         if self.room_name not in rooms:
             rooms[self.room_name] = []
         if token not in rooms[self.room_name]:
             rooms[self.room_name].append(token)
         if len(rooms[self.room_name]) > 1:
             self.connection_status = "connecting"
-            yield rx.call_script(f"create_offer('{token}')")
+            yield rx.call_script("create_offer()")
         else:
             self.connection_status = "connecting"
 
@@ -77,59 +111,48 @@ class CallState(rx.State):
             rooms[self.room_name].remove(token)
             if not rooms[self.room_name]:
                 del rooms[self.room_name]
-        return [rx.call_script("hangup()"), CallState.set_page_state("home")]
-
-    @rx.event
-    def handle_offer(self, offer: dict, token: str):
-        sds[token] = offer
-        other_peer = (
-            rooms[self.room_name][0]
-            if rooms[self.room_name][0] != token
-            else rooms[self.room_name][1]
-        )
-        return CallState.handle_answer(offer, other_peer)
-
-    @rx.event
-    def handle_answer(self, offer: dict, token: str):
-        return rx.call_script(f"create_answer('{token}', {offer})")
-
-    @rx.event
-    def handle_ice_candidate(self, candidate: dict, token: str):
-        other_peer = (
-            rooms[self.room_name][0]
-            if rooms[self.room_name][0] != token
-            else rooms[self.room_name][1]
-        )
-        return rx.call_script(f"add_ice_candidate('{other_peer}', {candidate})")
+        self.page_state = "home"
+        yield rx.call_script("hangup()")
+        yield CallState.send_signal({"type": "peer_left"})
+        self.is_sharing_screen = False
+        self.is_recording = False
+        self.messages = []
 
     @rx.event
     def set_connection_status(self, status: str):
         self.connection_status = status
 
+    @rx.event
     def toggle_camera(self):
         self.is_camera_on = not self.is_camera_on
-        return rx.call_script(f"toggle_track('video', {self.is_camera_on})")
+        return rx.call_script(
+            f"toggle_track('video', {str(self.is_camera_on).lower()})"
+        )
 
+    @rx.event
     def toggle_mic(self):
         self.is_mic_on = not self.is_mic_on
-        return rx.call_script(f"toggle_track('audio', {self.is_mic_on})")
+        return rx.call_script(f"toggle_track('audio', {str(self.is_mic_on).lower()})")
 
+    @rx.event
     def toggle_screen_share(self):
         self.is_sharing_screen = not self.is_sharing_screen
-        return rx.call_script(f"toggle_screen_share({self.is_sharing_screen})")
+        return rx.call_script(
+            f"toggle_screen_share({str(self.is_sharing_screen).lower()})"
+        )
 
     def toggle_recording(self):
         if not self.is_recording:
             self.is_recording_consent_shown = True
         else:
             self.is_recording = False
-            yield (rx.call_script("stop_recording()"),)
+            yield rx.call_script("stop_recording()")
             yield CallState.update_peer_recording_status(False)
 
     def confirm_recording(self):
         self.is_recording = True
         self.is_recording_consent_shown = False
-        yield (rx.call_script("start_recording()"),)
+        yield rx.call_script("start_recording()")
         yield CallState.update_peer_recording_status(True)
 
     def cancel_recording(self):
@@ -155,7 +178,8 @@ class CallState(rx.State):
     def send_message(self, form_data: dict):
         message_text = form_data["chat_input"].strip()
         if message_text:
-            self.messages.append({"user": self.text["you"], "text": message_text})
+            new_message = {"user": self.text["you"], "text": message_text}
+            self.messages.append(new_message)
             return rx.call_script(
                 f'send_data_channel_message({{"type": "chat", "text": "{message_text}"}})'
             )
@@ -175,7 +199,13 @@ class CallState(rx.State):
 
     @rx.var
     def page_url(self) -> str:
-        return f"{self.router.page.full_raw_path.split('?')[0]}?room={self.room_name}"
+        try:
+            return (
+                f"{self.router.page.full_raw_path.split('?')[0]}?room={self.room_name}"
+            )
+        except Exception as e:
+            logging.exception(f"Error getting page_url: {e}")
+            return ""
 
     @rx.event
     def copy_link(self):

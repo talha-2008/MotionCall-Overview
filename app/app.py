@@ -31,4 +31,4 @@ app = rx.App(
         rx.script(src="/webrtc.js"),
     ],
 )
-app.add_page(index, title="MotionCall", on_load=CallState.on_call_load)
+app.add_page(index, title="MotionCall")
