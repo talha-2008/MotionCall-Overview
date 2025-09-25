@@ -18,7 +18,7 @@ class CallState(rx.State):
     page_state: Literal["home", "lobby", "call"] = "home"
     room_name: str = ""
     theme: str = rx.LocalStorage("dark", name="motioncall_theme")
-    language: str = rx.LocalStorage("bn", name="motioncall_lang")
+    language: str = rx.LocalStorage("en", name="motioncall_lang")
     reduced_motion: bool = rx.LocalStorage(False, name="motioncall_reduced_motion")
     is_camera_on: bool = True
     is_mic_on: bool = True
@@ -27,6 +27,7 @@ class CallState(rx.State):
     is_recording_consent_shown: bool = False
     is_chat_open: bool = False
     is_settings_open: bool = False
+    is_menu_open: bool = False
     messages: list[Message] = []
     chat_input: str = ""
     connection_status: str = "connecting"
@@ -46,7 +47,7 @@ class CallState(rx.State):
     def join_lobby(self, form_data: dict[str, str]):
         self.room_name = form_data.get("room_name", "").strip()
         if self.room_name:
-            token = self.router.session.session_id
+            token = self.get_token()
             if (
                 token in rooms.get(self.room_name, [])
                 or len(rooms.get(self.room_name, [])) >= 2
@@ -65,25 +66,28 @@ class CallState(rx.State):
 
     @rx.event
     def on_call_load(self):
-        token = self.router.session.session_id
+        token = self.get_token()
         if not token or not self.room_name:
-            return
-        yield rx.call_script(f'init("{token}")')
+            self.page_state = "home"
+            return rx.toast.error("Room details not found. Returning to home.")
+        yield rx.call_script(f'init_peer_connection("{token}")')
         yield CallState.poll_signals
 
     @rx.event(background=True)
     async def poll_signals(self):
-        token = self.router.session.session_id
+        token = self.get_token()
         while True:
             async with self:
+                if self.page_state != "call":
+                    return
                 if token in signals:
                     signal = signals.pop(token)
-                    yield rx.call_script(f"handle_signal({signal})")
+                    yield rx.call_script(f"handle_signal({repr(signal)})")
             await asyncio.sleep(0.1)
 
     @rx.event
     def send_signal(self, signal: dict):
-        my_token = self.router.session.session_id
+        my_token = self.get_token()
         if self.room_name not in rooms:
             return
         other_peers = [p for p in rooms[self.room_name] if p != my_token]
@@ -93,7 +97,7 @@ class CallState(rx.State):
 
     @rx.event
     def user_joined(self):
-        token = self.router.session.session_id
+        token = self.get_token()
         if self.room_name not in rooms:
             rooms[self.room_name] = []
         if token not in rooms[self.room_name]:
@@ -106,7 +110,7 @@ class CallState(rx.State):
 
     @rx.event
     def leave_call(self):
-        token = self.router.session.session_id
+        token = self.get_token()
         if self.room_name in rooms and token in rooms[self.room_name]:
             rooms[self.room_name].remove(token)
             if not rooms[self.room_name]:
@@ -170,9 +174,16 @@ class CallState(rx.State):
 
     def toggle_chat(self):
         self.is_chat_open = not self.is_chat_open
+        self.is_settings_open = False
+        self.is_menu_open = False
 
     def toggle_settings(self):
         self.is_settings_open = not self.is_settings_open
+        self.is_chat_open = False
+        self.is_menu_open = False
+
+    def toggle_menu(self):
+        self.is_menu_open = not self.is_menu_open
 
     @rx.event
     def send_message(self, form_data: dict):

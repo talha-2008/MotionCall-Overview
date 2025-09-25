@@ -53,15 +53,52 @@ def call_header() -> rx.Component:
             )
         ),
         rx.el.div(
-            header_button(
-                "message-circle", CallState.toggle_chat, CallState.is_chat_open
+            rx.el.div(
+                header_button(
+                    "message-circle", CallState.toggle_chat, CallState.is_chat_open
+                ),
+                header_button(
+                    "settings-2", CallState.toggle_settings, CallState.is_settings_open
+                ),
+                class_name="hidden md:flex items-center gap-2",
             ),
-            header_button(
-                "settings-2", CallState.toggle_settings, CallState.is_settings_open
+            rx.el.div(
+                rx.el.button(
+                    rx.icon("menu", size=20),
+                    on_click=CallState.toggle_menu,
+                    class_name="p-2 rounded-lg "
+                    + rx.cond(
+                        CallState.theme == "dark",
+                        "hover:bg-gray-800",
+                        "hover:bg-gray-100",
+                    ),
+                ),
+                rx.cond(
+                    CallState.is_menu_open,
+                    rx.el.div(
+                        header_button(
+                            "message-circle",
+                            CallState.toggle_chat,
+                            CallState.is_chat_open,
+                        ),
+                        header_button(
+                            "settings-2",
+                            CallState.toggle_settings,
+                            CallState.is_settings_open,
+                        ),
+                        class_name="absolute top-14 right-4 p-2 rounded-lg flex flex-col gap-2 "
+                        + rx.cond(
+                            CallState.theme == "dark",
+                            "bg-gray-800 border border-gray-700",
+                            "bg-white border border-gray-200 shadow-lg",
+                        ),
+                    ),
+                ),
+                class_name="md:hidden relative",
             ),
             class_name="flex items-center gap-2",
         ),
-        class_name="fixed top-0 left-0 right-0 z-20 flex items-center justify-between p-3 "
+        class_name="fixed top-0 left-0 right-0 z-40 flex items-center justify-between p-3 "
         + rx.cond(
             CallState.theme == "dark",
             "bg-gray-900/80 text-white",

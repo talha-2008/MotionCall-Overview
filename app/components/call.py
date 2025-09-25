@@ -69,4 +69,5 @@ def call_interface() -> rx.Component:
         settings_panel(),
         recording_consent_modal(),
         class_name="relative w-full min-h-screen",
+        on_mount=CallState.on_call_load,
     )

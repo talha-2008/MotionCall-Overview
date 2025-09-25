@@ -46,7 +46,7 @@ class TextContent(TypedDict):
 
 
 TEXT_BN: TextContent = {
-    "app_name": "মোশনকল",
+    "app_name": "MotionCall by Talha",
     "enter_room": "একটি রুমের নাম লিখুন",
     "join_button": "রুমে যোগ দিন",
     "feature_1_title": "HD ভিডিও কল",
@@ -88,7 +88,7 @@ TEXT_BN: TextContent = {
     "recording_started": "রেকর্ডিং শুরু হয়েছে।",
 }
 TEXT_EN: TextContent = {
-    "app_name": "MotionCall",
+    "app_name": "MotionCall by Talha",
     "enter_room": "Enter a room name",
     "join_button": "Join Room",
     "feature_1_title": "HD Video Calls",

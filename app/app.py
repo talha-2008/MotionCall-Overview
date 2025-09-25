@@ -31,4 +31,4 @@ app = rx.App(
         rx.script(src="/webrtc.js"),
     ],
 )
-app.add_page(index, title="MotionCall")
+app.add_page(index, title="MotionCall by Talha")
