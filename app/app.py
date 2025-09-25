@@ -28,6 +28,9 @@ app = rx.App(
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
             rel="stylesheet",
         ),
+        rx.script(
+            "const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });"
+        ),
         rx.script(src="/webrtc.js"),
     ],
 )
