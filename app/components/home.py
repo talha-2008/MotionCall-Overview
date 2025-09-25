@@ -33,6 +33,7 @@ def home() -> rx.Component:
                 "1:1 video calls, screen share, chat, recording—simple but advanced.",
                 class_name="text-gray-400 max-w-lg text-center",
             ),
+            rx.el.p("by Talha", class_name="text-sm text-gray-500 -mt-4"),
             rx.el.form(
                 rx.el.input(
                     name="room_name",

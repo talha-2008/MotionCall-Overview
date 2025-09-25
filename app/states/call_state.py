@@ -47,7 +47,7 @@ class CallState(rx.State):
     def join_lobby(self, form_data: dict[str, str]):
         self.room_name = form_data.get("room_name", "").strip()
         if self.room_name:
-            token = self.get_token()
+            token = self.router.session.client_token
             if (
                 token in rooms.get(self.room_name, [])
                 or len(rooms.get(self.room_name, [])) >= 2
@@ -66,7 +66,7 @@ class CallState(rx.State):
 
     @rx.event
     def on_call_load(self):
-        token = self.get_token()
+        token = self.router.session.client_token
         if not token or not self.room_name:
             self.page_state = "home"
             return rx.toast.error("Room details not found. Returning to home.")
@@ -75,7 +75,7 @@ class CallState(rx.State):
 
     @rx.event(background=True)
     async def poll_signals(self):
-        token = self.get_token()
+        token = self.router.session.client_token
         while True:
             async with self:
                 if self.page_state != "call":
@@ -87,7 +87,7 @@ class CallState(rx.State):
 
     @rx.event
     def send_signal(self, signal: dict):
-        my_token = self.get_token()
+        my_token = self.router.session.client_token
         if self.room_name not in rooms:
             return
         other_peers = [p for p in rooms[self.room_name] if p != my_token]
@@ -97,7 +97,7 @@ class CallState(rx.State):
 
     @rx.event
     def user_joined(self):
-        token = self.get_token()
+        token = self.router.session.client_token
         if self.room_name not in rooms:
             rooms[self.room_name] = []
         if token not in rooms[self.room_name]:
@@ -110,7 +110,7 @@ class CallState(rx.State):
 
     @rx.event
     def leave_call(self):
-        token = self.get_token()
+        token = self.router.session.client_token
         if self.room_name in rooms and token in rooms[self.room_name]:
             rooms[self.room_name].remove(token)
             if not rooms[self.room_name]:

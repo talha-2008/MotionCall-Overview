@@ -65,7 +65,7 @@ def call_controls() -> rx.Component:
             text=rx.cond(
                 CallState.is_mic_on, CallState.text.mic_on, CallState.text.mic_off
             ),
-            on_click=CallState.toggle_mic(),
+            on_click=CallState.toggle_mic,
             active=~CallState.is_mic_on,
         ),
         control_button(
@@ -73,7 +73,7 @@ def call_controls() -> rx.Component:
             text=rx.cond(
                 CallState.is_camera_on, CallState.text.cam_on, CallState.text.cam_off
             ),
-            on_click=CallState.toggle_camera(),
+            on_click=CallState.toggle_camera,
             active=~CallState.is_camera_on,
         ),
         control_button(
@@ -83,7 +83,7 @@ def call_controls() -> rx.Component:
                 CallState.text.stop_sharing,
                 CallState.text.share_screen,
             ),
-            on_click=CallState.toggle_screen_share(),
+            on_click=CallState.toggle_screen_share,
             active=CallState.is_sharing_screen,
         ),
         control_button(
