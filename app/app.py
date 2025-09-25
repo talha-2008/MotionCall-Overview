@@ -29,6 +29,29 @@ app = rx.App(
             rel="stylesheet",
         ),
         rx.script(src="/webrtc.js"),
+        rx.script("""
+            function request_media_permissions() {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    .then(stream => {
+                        window.localStream = stream;
+                        rx.call_event("set_camera_permission", [true]);
+                        rx.call_event("set_mic_permission", [true]);
+                        const localVideo = document.getElementById('local-video');
+                        if (localVideo) {
+                            localVideo.srcObject = stream;
+                        }
+                        // Now that we have permissions, we can join the call
+                        rx.call_event("join_call", []);
+                    })
+                    .catch(err => {
+                        console.error("Error getting media permissions: ", err);
+                        rx.call_event("set_camera_permission", [false]);
+                        rx.call_event("set_mic_permission", [false]);
+                        // Still try to join call, the backend will show a toast
+                        rx.call_event("join_call", []);
+                    });
+            }
+            """),
     ],
 )
 app.add_page(index, title="MotionCall by Talha")

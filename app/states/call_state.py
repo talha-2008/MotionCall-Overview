@@ -21,6 +21,8 @@ class CallState(rx.State):
     language: str = rx.LocalStorage("en", name="motioncall_lang")
     reduced_motion: bool = rx.LocalStorage(False, name="motioncall_reduced_motion")
     is_camera_on: bool = True
+    camera_permission: bool | None = None
+    mic_permission: bool | None = None
     is_mic_on: bool = True
     is_sharing_screen: bool = False
     is_recording: bool = False
@@ -60,9 +62,22 @@ class CallState(rx.State):
         yield rx.toast.error(self.text["enter_room"])
 
     @rx.event
+    def set_camera_permission(self, status: bool):
+        self.camera_permission = status
+
+    @rx.event
+    def set_mic_permission(self, status: bool):
+        self.mic_permission = status
+
+    @rx.event
+    async def check_permissions_and_join(self):
+        return rx.call_script("request_media_permissions()")
+
+    @rx.event
     def join_call(self):
+        if self.camera_permission is False or self.mic_permission is False:
+            return rx.toast.error("Camera and Mic permissions are required to join.")
         self.page_state = "call"
-        return CallState.on_call_load
 
     @rx.event
     def on_call_load(self):
@@ -70,6 +85,10 @@ class CallState(rx.State):
         if not token or not self.room_name:
             self.page_state = "home"
             return rx.toast.error("Room details not found. Returning to home.")
+        if self.room_name not in rooms:
+            rooms[self.room_name] = []
+        if token not in rooms[self.room_name]:
+            rooms[self.room_name].append(token)
         yield rx.call_script(f'init_peer_connection("{token}")')
         yield CallState.poll_signals
 
@@ -79,6 +98,8 @@ class CallState(rx.State):
         while True:
             async with self:
                 if self.page_state != "call":
+                    rooms.pop(self.room_name, None)
+                    signals.pop(token, None)
                     return
                 if token in signals:
                     signal = signals.pop(token)
@@ -98,11 +119,7 @@ class CallState(rx.State):
     @rx.event
     def user_joined(self):
         token = self.router.session.client_token
-        if self.room_name not in rooms:
-            rooms[self.room_name] = []
-        if token not in rooms[self.room_name]:
-            rooms[self.room_name].append(token)
-        if len(rooms[self.room_name]) > 1:
+        if len(rooms.get(self.room_name, [])) > 1:
             self.connection_status = "connecting"
             yield rx.call_script("create_offer()")
         else:

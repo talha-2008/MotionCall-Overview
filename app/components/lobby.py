@@ -95,7 +95,7 @@ def lobby() -> rx.Component:
             rx.el.button(
                 rx.icon("arrow-right", class_name="mr-2"),
                 CallState.text.join_call_button,
-                on_click=CallState.join_call,
+                on_click=CallState.check_permissions_and_join,
                 class_name="px-8 py-3 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 flex items-center"
                 + f" {CallState.motion_class}",
             ),
@@ -103,5 +103,5 @@ def lobby() -> rx.Component:
         ),
         class_name="flex flex-col items-center justify-center gap-8 min-h-screen p-4 "
         + rx.cond(CallState.theme == "dark", "text-white", "text-black"),
-        on_mount=rx.call_script('init_local_media("local-video")'),
+        on_mount=CallState.check_permissions_and_join,
     )
