@@ -162,6 +162,7 @@ class CallState(rx.State):
             f"toggle_screen_share({str(self.is_sharing_screen).lower()})"
         )
 
+    @rx.event
     def toggle_recording(self):
         if not self.is_recording:
             self.is_recording_consent_shown = True

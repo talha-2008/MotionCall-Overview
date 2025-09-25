@@ -103,5 +103,5 @@ def lobby() -> rx.Component:
         ),
         class_name="flex flex-col items-center justify-center gap-8 min-h-screen p-4 "
         + rx.cond(CallState.theme == "dark", "text-white", "text-black"),
-        on_mount=CallState.check_permissions_and_join,
+        on_mount=lambda: CallState.check_permissions_and_join(),
     )
